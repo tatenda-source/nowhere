@@ -1,7 +1,12 @@
 import logging
 import sys
 import json
+import contextvars
 from datetime import datetime, timezone
+
+# Context var for request-scoped correlation ID
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -11,25 +16,23 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
             "module": record.module,
             "func": record.funcName,
+            "request_id": request_id_var.get("-"),
         }
-        if hasattr(record, "request_id"):
-            log_obj["request_id"] = record.request_id
-        
+
         if record.exc_info:
             log_obj["exception"] = self.formatException(record.exc_info)
-            
+
         return json.dumps(log_obj)
+
 
 def configure_logging():
     root = logging.getLogger()
     root.setLevel(logging.INFO)
-    
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
-    
-    # Remove existing handlers
+
     root.handlers = []
     root.addHandler(handler)
-    
-    # Silence noisy libs
-    logging.getLogger("uvicorn.access").disabled = True # We might want our own access logs
+
+    logging.getLogger("uvicorn.access").disabled = True
