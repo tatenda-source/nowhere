@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 const IDENTITY_KEY = 'nowhere_anon_id';
 const JWT_KEY = 'nowhere_jwt';
 const ROTATION_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const BASE_URL = 'http://localhost:8000'; // Match api.ts
+const BASE_URL = 'http://10.10.0.69:8000'; // Match api.ts
 
 interface IdentityData {
     id: string;

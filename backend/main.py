@@ -69,8 +69,7 @@ app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 # so we use allow_origin_regex='.*' to match ANY origin while allowing credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[], # Handled by regex
-    allow_origin_regex='.*', # Allows ALL origins
+    allow_origin_regex='^http://.*$', # Allow all http origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
