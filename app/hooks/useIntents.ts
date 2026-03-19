@@ -27,12 +27,6 @@ export function useIntents() {
         fetchData();
     }, [fetchData]);
 
-    return {
-        nearby,
-        loading,
-        location,
-        message,
-        fetchData,
-        joinIntent
-    };
+    // Return aggregated state and actions
+    return { nearby, loading, location, message, fetchData, joinIntent };
 }
