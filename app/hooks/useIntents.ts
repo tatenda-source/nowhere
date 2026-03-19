@@ -9,45 +9,18 @@ import { useNearbyIntents } from './useNearbyIntents';
 import { useJoinIntent } from './useJoinIntent';
 
 export function useIntents() {
-    const [nearby, setNearby] = useState<Intent[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [location, setLocation] = useState<CoarseLocation | null>(null);
-    const [message, setMessage] = useState<string | null>(null);
+    const { location, fetchLocation } = useLocation();
+    const { nearby, loading, message, fetchIntents } = useNearbyIntents();
+    const { joinIntent: doJoinIntent } = useJoinIntent();
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const loc = await getCurrentLocation();
-            setLocation(loc);
-            if (loc) {
-                const res = await api.get('/intents/nearby', {
-                    params: { lat: loc.latitude, lon: loc.longitude }
-                });
-                setNearby(res.data.intents);
-                setMessage(res.data.message || null);
-            } else {
-                setMessage("We need your location to find the Nowhere.");
-            }
-        } catch (e) {
-            console.error(e);
-            Alert.alert("Error", "Could not fetch nearby events");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+        const loc = await fetchLocation();
+        await fetchIntents(loc);
+    }, [fetchLocation, fetchIntents]);
 
     const joinIntent = useCallback(async (id: string) => {
-        try {
-            await api.post(`/intents/${id}/join`);
-            Alert.alert("Joined!", "You are in.");
-            fetchData();
-            return true;
-        } catch (e) {
-            console.error(e);
-            Alert.alert("Error", "Could not join intent");
-            return false;
-        }
-    }, [fetchData]);
+        return await doJoinIntent(id, fetchData);
+    }, [doJoinIntent, fetchData]);
 
     useEffect(() => {
         fetchData();
