@@ -28,8 +28,9 @@ class IntentQueryService:
         lat: float,
         lon: float,
         radius: float = 10.0,
+        zoom: int | None = None,
     ) -> dict:
         """Get clustered view of intents in an area."""
         points = await self.intent_repo.get_geo_points(lat, lon, radius)
-        clusters = ClusteringService.cluster(points, radius)
+        clusters = ClusteringService.cluster(points, radius, zoom=zoom)
         return {"clusters": clusters}

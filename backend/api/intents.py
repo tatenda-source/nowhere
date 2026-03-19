@@ -63,9 +63,10 @@ async def get_intent_clusters(
     lat: float,
     lon: float,
     radius: float = 10.0,
-    query_service: IntentQueryService = Depends(get_intent_query_service)
+    zoom: int | None = None,
+    query_service: IntentQueryService = Depends(get_intent_query_service),
 ):
-    return await query_service.get_clusters(lat, lon, radius)
+    return await query_service.get_clusters(lat, lon, radius, zoom)
 
 @router.post("/{intent_id}/join", status_code=200, dependencies=[Depends(RateLimiter("join", 20, 3600))])
 async def join_intent(
