@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput, Button, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { api } from '../utils/api';
+import { API_URL } from '../utils/config';
 
 interface Message {
     id: string;
@@ -14,47 +15,105 @@ interface Props {
     onBack: () => void;
 }
 
+function buildWsUrl(intentId: string): string {
+    // Convert http(s)://host to ws(s)://host
+    const wsBase = API_URL.replace(/^http/, 'ws');
+    return `${wsBase}/ws/intents/${intentId}/messages`;
+}
+
 export default function ChatScreen({ intentId, onBack }: Props) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(true);
+    const [connected, setConnected] = useState(false);
 
-    // Polling ref
+    const wsRef = useRef<WebSocket | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const flatListRef = useRef<FlatList>(null);
 
-    const fetchMessages = async () => {
+    const fetchMessages = useCallback(async () => {
         try {
             const res = await api.get(`/intents/${intentId}/messages`);
             setMessages(res.data);
         } catch (e) {
             console.error(e);
-            // Don't alert on poll fail to avoid spam
         } finally {
             setLoading(false);
         }
-    };
-
-    const startPolling = () => {
-        fetchMessages(); // initial
-        intervalRef.current = setInterval(fetchMessages, 3000); // Poll every 3s
-    };
-
-    useEffect(() => {
-        startPolling();
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
     }, [intentId]);
+
+    // WebSocket connection with polling fallback
+    useEffect(() => {
+        // Initial fetch
+        fetchMessages();
+
+        // Attempt WebSocket
+        const ws = new WebSocket(buildWsUrl(intentId));
+
+        ws.onopen = () => {
+            setConnected(true);
+            // Stop polling if it was running
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message' && data.message) {
+                    setMessages(prev => [...prev, data.message]);
+                }
+            } catch (e) {
+                // Ignore non-JSON (e.g. "pong")
+            }
+        };
+
+        ws.onerror = () => {
+            setConnected(false);
+            // Fall back to polling
+            if (!intervalRef.current) {
+                intervalRef.current = setInterval(fetchMessages, 3000);
+            }
+        };
+
+        ws.onclose = () => {
+            setConnected(false);
+            // Fall back to polling
+            if (!intervalRef.current) {
+                intervalRef.current = setInterval(fetchMessages, 3000);
+            }
+        };
+
+        wsRef.current = ws;
+
+        // Keepalive ping every 30s
+        const pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send('ping');
+            }
+        }, 30000);
+
+        return () => {
+            clearInterval(pingInterval);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            ws.close();
+        };
+    }, [intentId, fetchMessages]);
 
     const handleSend = async () => {
         if (!text.trim()) return;
         try {
             await api.post(`/intents/${intentId}/messages`, {
-                user_id: "ignored_by_backend", // Backend uses cookie
+                user_id: "ignored_by_backend",
                 content: text
             });
             setText('');
-            fetchMessages(); // Immediate refresh
+            // If not on WebSocket, fetch immediately
+            if (!connected) {
+                fetchMessages();
+            }
         } catch (e) {
             console.error(e);
             Alert.alert("Error", "Could not send message");
@@ -66,21 +125,19 @@ export default function ChatScreen({ intentId, onBack }: Props) {
             <View style={styles.headerRow}>
                 <Button title="<" onPress={onBack} />
                 <Text style={styles.header}>Chat</Text>
+                <View style={[styles.statusDot, { backgroundColor: connected ? '#4CAF50' : '#FF9800' }]} />
             </View>
 
             <FlatList
+                ref={flatListRef}
                 data={messages}
                 keyExtractor={(item) => item.id}
-                inverted={false} // List should show newest at bottom? 
-                // Usually chat is bottom-up.
-                // But for simple list, simplest is normal order, scroll to end?
-                // Or inverted with data reversed.
-                // Let's stick to normal order for MVP.
                 renderItem={({ item }) => (
                     <View style={styles.bubble}>
                         <Text style={styles.content}>{item.content}</Text>
                     </View>
                 )}
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
 
             <View style={styles.inputRow}>
@@ -113,7 +170,14 @@ const styles = StyleSheet.create({
     header: {
         fontSize: 20,
         fontWeight: 'bold',
-        marginLeft: 10
+        marginLeft: 10,
+        flex: 1,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 10,
     },
     bubble: {
         padding: 10,

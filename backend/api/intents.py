@@ -12,6 +12,7 @@ from .join_schemas import JoinRequest
 from .schemas import NearbyResponse, CreateIntentRequest, ClusterResponse
 from ..services.intent_command_handler import IntentCommandHandler
 from ..services.intent_query_service import IntentQueryService
+from .ws import get_ws_manager
 
 router = APIRouter()
 
@@ -100,11 +101,22 @@ async def post_message(
     )
     
     try:
-        return await handler.handle_post_message(cmd)
+        message = await handler.handle_post_message(cmd)
+        # Broadcast to WebSocket subscribers
+        ws_manager = get_ws_manager()
+        await ws_manager.broadcast(str(intent_id), {
+            "type": "new_message",
+            "message": {
+                "id": str(message.id),
+                "user_id": str(message.user_id),
+                "content": message.content,
+                "created_at": message.created_at.isoformat(),
+            }
+        })
+        return message
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except DomainError as e:
-        # Map domain errors
         if "Must join" in str(e):
             raise HTTPException(status_code=403, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))

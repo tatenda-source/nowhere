@@ -16,6 +16,7 @@ from .infra.persistence.db import init_db
 from .api.intents import router as intents_router
 from .api.debug import router as debug_router
 from .api.auth import router as auth_router
+from .api.ws import router as ws_router
 from .auth.middleware import AuthMiddleware
 
 # Configure logging
@@ -97,6 +98,7 @@ async def request_id_middleware(request: Request, call_next):
 app.include_router(intents_router, prefix="/intents", tags=["intents"])
 app.include_router(debug_router, prefix="/debug", tags=["debug"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(ws_router)
 
 # --- EXCEPTION HANDLERS ---
 
