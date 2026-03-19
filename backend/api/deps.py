@@ -27,6 +27,7 @@ from ..services.metrics_event_handler import MetricsEventHandler
 from ..core.clock import Clock, SystemClock
 from ..core.event_bus import EventBus, InMemoryEventBus
 from ..core.events import IntentCreated, IntentJoined, MessagePosted, IntentFlagged
+from ..infra.persistence.event_store import RedisEventStore
 
 # Global event bus instance (singleton pattern)
 _event_bus = None
@@ -49,19 +50,23 @@ def get_metrics_repo(redis: Redis = Depends(get_redis_client)) -> MetricsReposit
 def get_spam_detector(redis: Redis = Depends(get_redis_client)) -> SpamDetector:
     return SpamDetector(redis)
 
-def get_event_bus(metrics_repo: MetricsRepository = Depends(get_metrics_repo)) -> EventBus:
+def get_event_bus(
+    metrics_repo: MetricsRepository = Depends(get_metrics_repo),
+    redis: Redis = Depends(get_redis_client),
+) -> EventBus:
     """Get the global event bus instance and wire up handlers."""
     global _event_bus
     if _event_bus is None:
-        _event_bus = InMemoryEventBus()
-        
+        event_store = RedisEventStore(redis)
+        _event_bus = InMemoryEventBus(event_store=event_store)
+
         # Wire up metrics event handler
         metrics_handler = MetricsEventHandler(metrics_repo)
         _event_bus.subscribe(IntentCreated, metrics_handler.on_intent_created)
         _event_bus.subscribe(IntentJoined, metrics_handler.on_intent_joined)
         _event_bus.subscribe(MessagePosted, metrics_handler.on_message_posted)
         _event_bus.subscribe(IntentFlagged, metrics_handler.on_intent_flagged)
-    
+
     return _event_bus
 
 def get_intent_service(
