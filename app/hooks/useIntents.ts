@@ -5,6 +5,10 @@ import { useLocation } from './useLocation';
 import { useNearbyIntents } from './useNearbyIntents';
 import { useJoinIntent } from './useJoinIntent';
 
+/**
+ * Hook to manage nearby intents, location fetching, and intent joining.
+ * Refactored using Single Responsibility Principle (SRP).
+ */
 export function useIntents() {
     const { location, fetchLocation } = useLocation();
     const { nearby, loading, message, fetchIntents } = useNearbyIntents();
