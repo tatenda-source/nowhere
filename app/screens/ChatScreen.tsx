@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput, Button, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { api } from '../utils/api';
 import { API_URL } from '../utils/config';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../App';
 
 interface Message {
     id: string;
@@ -10,18 +12,15 @@ interface Message {
     created_at: string;
 }
 
-interface Props {
-    intentId: string;
-    onBack: () => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 function buildWsUrl(intentId: string): string {
-    // Convert http(s)://host to ws(s)://host
     const wsBase = API_URL.replace(/^http/, 'ws');
     return `${wsBase}/ws/intents/${intentId}/messages`;
 }
 
-export default function ChatScreen({ intentId, onBack }: Props) {
+export default function ChatScreen({ route, navigation }: Props) {
+    const { intentId } = route.params;
     const [messages, setMessages] = useState<Message[]>([]);
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(true);
@@ -123,7 +122,7 @@ export default function ChatScreen({ intentId, onBack }: Props) {
     return (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
             <View style={styles.headerRow}>
-                <Button title="<" onPress={onBack} />
+                <Button title="<" onPress={() => navigation.goBack()} />
                 <Text style={styles.header}>Chat</Text>
                 <View style={[styles.statusDot, { backgroundColor: connected ? '#4CAF50' : '#FF9800' }]} />
             </View>

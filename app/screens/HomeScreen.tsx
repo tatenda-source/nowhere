@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Button } from 'react-native';
 import { useIntents } from '../hooks/useIntents';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../App';
 
-interface Props {
-    onCreate: () => void;
-    onChat: (id: string) => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export default function HomeScreen({ onCreate, onChat }: Props) {
+export default function HomeScreen({ navigation }: Props) {
     const { nearby, loading, message, fetchData, joinIntent } = useIntents();
 
     if (loading && !nearby.length) {
@@ -28,7 +27,7 @@ export default function HomeScreen({ onCreate, onChat }: Props) {
                     <Text style={[styles.message, { fontSize: 20, textAlign: 'center' }]}>
                         {message || "It's quiet here."}
                     </Text>
-                    <Button title="Start something" onPress={onCreate} />
+                    <Button title="Start something" onPress={() => navigation.navigate('Create')} />
                 </View>
             </View>
         )
@@ -38,7 +37,7 @@ export default function HomeScreen({ onCreate, onChat }: Props) {
         <View style={styles.container}>
             <View style={styles.headerRow}>
                 <Text style={styles.header}>Nowhere</Text>
-                <Button title="+" onPress={onCreate} />
+                <Button title="+" onPress={() => navigation.navigate('Create')} />
             </View>
             {message && <Text style={styles.message}>{message}</Text>}
 
@@ -56,7 +55,7 @@ export default function HomeScreen({ onCreate, onChat }: Props) {
                         </View>
                         <View style={styles.actions}>
                             <Button title="Join" onPress={() => joinIntent(item.id)} />
-                            <Button title="Chat" color="#666" onPress={() => onChat(item.id)} />
+                            <Button title="Chat" color="#666" onPress={() => navigation.navigate('Chat', { intentId: item.id })} />
                         </View>
                     </View>
                 )}

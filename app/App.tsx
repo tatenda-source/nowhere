@@ -1,36 +1,34 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './screens/HomeScreen';
 import CreateScreen from './screens/CreateScreen';
 import ChatScreen from './screens/ChatScreen';
 
-type Screen = 'home' | 'create' | 'chat';
+export type RootStackParamList = {
+    Home: undefined;
+    Create: undefined;
+    Chat: { intentId: string };
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('home');
-  const [activeIntentId, setActiveIntentId] = useState<string | null>(null);
-
-  const openChat = (id: string) => {
-    setActiveIntentId(id);
-    setScreen('chat');
-  };
-
-  return (
-    <>
-      {screen === 'home' && (
-        <HomeScreen
-          onCreate={() => setScreen('create')}
-          onChat={openChat}
-        />
-      )}
-      {screen === 'create' && <CreateScreen onCancel={() => setScreen('home')} onCreated={() => setScreen('home')} />}
-      {screen === 'chat' && activeIntentId && (
-        <ChatScreen
-          intentId={activeIntentId}
-          onBack={() => setScreen('home')}
-        />
-      )}
-      <StatusBar style="auto" />
-    </>
-  );
+    return (
+        <NavigationContainer>
+            <Stack.Navigator
+                initialRouteName="Home"
+                screenOptions={{ headerShown: false }}
+            >
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen
+                    name="Create"
+                    component={CreateScreen}
+                    options={{ presentation: 'modal' }}
+                />
+                <Stack.Screen name="Chat" component={ChatScreen} />
+            </Stack.Navigator>
+            <StatusBar style="auto" />
+        </NavigationContainer>
+    );
 }
