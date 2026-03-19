@@ -11,8 +11,8 @@ export default function HomeScreen({ navigation }: Props) {
 
     if (loading && !nearby.length) {
         return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" />
+            <View style={styles.center} accessibilityLabel="Loading nearby intents">
+                <ActivityIndicator size="large" accessibilityLabel="Loading" />
             </View>
         )
     }
@@ -37,7 +37,7 @@ export default function HomeScreen({ navigation }: Props) {
         <View style={styles.container}>
             <View style={styles.headerRow}>
                 <Text style={styles.header}>Nowhere</Text>
-                <Button title="+" onPress={() => navigation.navigate('Create')} />
+                <Button title="+" onPress={() => navigation.navigate('Create')} accessibilityLabel="Create new intent" />
             </View>
             {message && <Text style={styles.message}>{message}</Text>}
 
@@ -47,15 +47,15 @@ export default function HomeScreen({ navigation }: Props) {
                 refreshing={loading}
                 onRefresh={fetchData}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <Text style={styles.emoji}>{item.emoji}</Text>
+                    <View style={styles.card} accessibilityLabel={`${item.emoji} ${item.title}, ${item.join_count} joined`} accessibilityRole="button">
+                        <Text style={styles.emoji} accessibilityElementsHidden>{item.emoji}</Text>
                         <View style={styles.info}>
                             <Text style={styles.title}>{item.title}</Text>
                             <Text style={styles.meta}>{item.join_count} joined</Text>
                         </View>
                         <View style={styles.actions}>
-                            <Button title="Join" onPress={() => joinIntent(item.id)} />
-                            <Button title="Chat" color="#666" onPress={() => navigation.navigate('Chat', { intentId: item.id })} />
+                            <Button title="Join" onPress={() => joinIntent(item.id)} accessibilityLabel={`Join ${item.title}`} />
+                            <Button title="Chat" color="#666" onPress={() => navigation.navigate('Chat', { intentId: item.id })} accessibilityLabel={`Chat about ${item.title}`} />
                         </View>
                     </View>
                 )}

@@ -122,9 +122,9 @@ export default function ChatScreen({ route, navigation }: Props) {
     return (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
             <View style={styles.headerRow}>
-                <Button title="<" onPress={() => navigation.goBack()} />
+                <Button title="<" onPress={() => navigation.goBack()} accessibilityLabel="Go back" />
                 <Text style={styles.header}>Chat</Text>
-                <View style={[styles.statusDot, { backgroundColor: connected ? '#4CAF50' : '#FF9800' }]} />
+                <View style={[styles.statusDot, { backgroundColor: connected ? '#4CAF50' : '#FF9800' }]} accessibilityLabel={connected ? 'Connected' : 'Reconnecting'} />
             </View>
 
             <FlatList
@@ -145,8 +145,10 @@ export default function ChatScreen({ route, navigation }: Props) {
                     value={text}
                     onChangeText={setText}
                     placeholder="Type a message..."
+                    accessibilityLabel="Message input"
+                    accessibilityHint="Type your message and press send"
                 />
-                <Button title="Send" onPress={handleSend} />
+                <Button title="Send" onPress={handleSend} accessibilityLabel="Send message" />
             </View>
         </KeyboardAvoidingView>
     );

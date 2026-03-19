@@ -63,6 +63,8 @@ export default function CreateScreen({ navigation }: Props) {
                 value={title}
                 onChangeText={setTitle}
                 maxLength={50}
+                accessibilityLabel="Intent title"
+                accessibilityHint="Describe what's happening"
             />
 
             <Text style={styles.label}>Emoji</Text>
@@ -72,11 +74,12 @@ export default function CreateScreen({ navigation }: Props) {
                 value={emoji}
                 onChangeText={setEmoji}
                 maxLength={2}
+                accessibilityLabel="Emoji for your intent"
             />
 
             <View style={styles.buttons}>
-                <Button title="Cancel" onPress={() => navigation.goBack()} color="#999" />
-                <Button title="Create" onPress={handleCreate} />
+                <Button title="Cancel" onPress={() => navigation.goBack()} color="#999" accessibilityLabel="Cancel and go back" />
+                <Button title="Create" onPress={handleCreate} accessibilityLabel="Create intent" />
             </View>
         </View>
     );
