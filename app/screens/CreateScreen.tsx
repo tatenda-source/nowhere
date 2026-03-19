@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { getCurrentLocation } from '../utils/location';
 import { api } from '../utils/api';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../App';
 
-interface Props {
-    onCancel: () => void;
-    onCreated: () => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Create'>;
 
-export default function CreateScreen({ onCancel, onCreated }: Props) {
+export default function CreateScreen({ navigation }: Props) {
     const [title, setTitle] = useState('');
     const [emoji, setEmoji] = useState('📍');
     const [creating, setCreating] = useState(false);
@@ -20,32 +19,26 @@ export default function CreateScreen({ onCancel, onCreated }: Props) {
         }
 
         setCreating(true);
-        console.log("Starting creation flow...");
         try {
-            console.log("Getting location...");
             const loc = await getCurrentLocation();
-            console.log("Location received:", loc);
             if (!loc) {
                 Alert.alert("Permission", "Location needed to create intent");
                 setCreating(false);
                 return;
             }
 
-            console.log("Sending API request to:", '/intents/');
             await api.post('/intents/', {
                 title: title,
                 emoji: emoji,
                 latitude: loc.latitude,
                 longitude: loc.longitude
             });
-            console.log("API request successful");
 
-            onCreated();
+            navigation.goBack();
         } catch (e) {
             console.error("Creation failed:", e);
             Alert.alert("Error", "Failed to create intent");
         } finally {
-            console.log("Creation flow finished (finally block)");
             setCreating(false);
         }
     };
@@ -70,6 +63,8 @@ export default function CreateScreen({ onCancel, onCreated }: Props) {
                 value={title}
                 onChangeText={setTitle}
                 maxLength={50}
+                accessibilityLabel="Intent title"
+                accessibilityHint="Describe what's happening"
             />
 
             <Text style={styles.label}>Emoji</Text>
@@ -79,11 +74,12 @@ export default function CreateScreen({ onCancel, onCreated }: Props) {
                 value={emoji}
                 onChangeText={setEmoji}
                 maxLength={2}
+                accessibilityLabel="Emoji for your intent"
             />
 
             <View style={styles.buttons}>
-                <Button title="Cancel" onPress={onCancel} color="#999" />
-                <Button title="Create" onPress={handleCreate} />
+                <Button title="Cancel" onPress={() => navigation.goBack()} color="#999" accessibilityLabel="Cancel and go back" />
+                <Button title="Create" onPress={handleCreate} accessibilityLabel="Create intent" />
             </View>
         </View>
     );

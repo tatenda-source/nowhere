@@ -28,6 +28,12 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "apiUrl": "${NOWHERE_API_URL}",
+      "eas": {
+        "projectId": ""
+      }
+    }
   }
 }

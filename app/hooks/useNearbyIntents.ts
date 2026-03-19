@@ -21,9 +21,10 @@ export function useNearbyIntents() {
             } else {
                 setMessage("We need your location to find the Nowhere.");
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            Alert.alert("Error", "Could not fetch nearby events");
+            // Keep stale data visible — don't clear nearby
+            setMessage(e.userMessage || "Could not fetch nearby events");
         } finally {
             setLoading(false);
         }

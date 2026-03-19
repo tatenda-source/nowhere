@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 const IDENTITY_KEY = 'nowhere_anon_id';
 const JWT_KEY = 'nowhere_jwt';
 const ROTATION_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const BASE_URL = 'http://10.10.0.69:8000'; // Match api.ts
+import { API_URL } from './config';
 
 interface IdentityData {
     id: string;
@@ -86,7 +86,7 @@ export async function getAccessToken(): Promise<string | null> {
     // 2. Handshake
     try {
         const anonId = await getOrCreateIdentity();
-        const response = await fetch(`${BASE_URL}/auth/handshake`, {
+        const response = await fetch(`${API_URL}/auth/handshake`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ anon_id: anonId })

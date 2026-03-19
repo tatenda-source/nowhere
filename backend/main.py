@@ -9,13 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import project modules
 from .config import settings
-from .core.logging import configure_logging
+from .core.logging import configure_logging, request_id_var
 from .core.exceptions import DomainError, IntentNotFound, InvalidAction, IntentExpired, SpamDetected
 from .infra.persistence.redis import lifespan as redis_lifespan, RedisClient
 from .infra.persistence.db import init_db
 from .api.intents import router as intents_router
 from .api.debug import router as debug_router
 from .api.auth import router as auth_router
+from .api.ws import router as ws_router
+from .api.metrics import router as metrics_router
 from .auth.middleware import AuthMiddleware
 
 # Configure logging
@@ -49,12 +51,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to connect to Redis: {e}")
         # We don't crash here to allow 'partial' start if user wants debugging
     
-    # Init DB
-    try:
-        await init_db()
-        logger.info("Database initialized.")
-    except Exception as e:
-        logger.error(f"Failed to initialize Database: {e}")
+    # Init DB (optional — only if Postgres is enabled for metrics)
+    if settings.POSTGRES_ENABLED:
+        try:
+            await init_db()
+            logger.info("Database initialized.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Database: {e}")
+    else:
+        logger.info("PostgreSQL disabled — metrics stored in Redis only.")
 
     yield
     await RedisClient.disconnect()
@@ -78,25 +83,29 @@ app.add_middleware(
 # 2. Auth Middleware
 app.add_middleware(AuthMiddleware)
 
-# 3. Request ID logging
+# 3. Request ID + correlation logging
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
-    request_id = str(uuid.uuid4())
-    logger.info(f"Request started: {request.method} {request.url} - RequestID: {request_id}")
+    rid = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    token = request_id_var.set(rid)
+    logger.info(f"{request.method} {request.url.path}")
     try:
         response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        logger.info(f"Request completed: {request.method} {request.url} - RequestID: {request_id}")
+        response.headers["X-Request-ID"] = rid
+        logger.info(f"{request.method} {request.url.path} -> {response.status_code}")
         return response
     except Exception as e:
-        logger.error(f"Request failed: {request.method} {request.url} - Error: {e}")
-        # Re-raise so the global handler catches it
-        raise e 
+        logger.error(f"{request.method} {request.url.path} failed: {e}")
+        raise
+    finally:
+        request_id_var.reset(token)
 
 # --- ROUTERS ---
 app.include_router(intents_router, prefix="/intents", tags=["intents"])
 app.include_router(debug_router, prefix="/debug", tags=["debug"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(ws_router)
+app.include_router(metrics_router)
 
 # --- EXCEPTION HANDLERS ---
 
