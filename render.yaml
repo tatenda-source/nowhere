@@ -1,0 +1,70 @@
+services:
+  # FastAPI Backend
+  - type: web
+    name: nowhere-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: REDIS_DSN
+        fromService:
+          type: redis
+          name: nowhere-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEVICE_TOKEN_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: https://nowhere-web.onrender.com
+      - key: DEBUG
+        value: "false"
+      - key: POSTGRES_ENABLED
+        value: "false"
+    healthCheckPath: /health
+
+  # Static PWA Site
+  - type: web
+    name: nowhere-web
+    runtime: static
+    buildCommand: cd app && npm install && npm run build:web
+    staticPublishPath: app/dist
+    plan: free
+    headers:
+      - path: /service-worker.js
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://nowhere-api.onrender.com/api/*
+      - type: rewrite
+        source: /ws/*
+        destination: https://nowhere-api.onrender.com/ws/*
+      - type: rewrite
+        source: /auth/*
+        destination: https://nowhere-api.onrender.com/auth/*
+      - type: rewrite
+        source: /intents/*
+        destination: https://nowhere-api.onrender.com/intents/*
+      - type: rewrite
+        source: /health
+        destination: https://nowhere-api.onrender.com/health
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: nowhere-redis
+    plan: free
+    ipAllowList: []

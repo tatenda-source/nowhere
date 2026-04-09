@@ -18,7 +18,10 @@ function resolveApiUrl(): string {
         return 'http://localhost:8000';
     }
 
-    // 3. Production fallback (should be set via config)
+    // 3. Production fallback — use current origin so Render rewrites work
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
     return 'https://api.nowhere.app';
 }
 
