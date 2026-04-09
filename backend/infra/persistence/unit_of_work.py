@@ -1,6 +1,5 @@
 from typing import List, Any
 from redis.asyncio import Redis
-from backend.core.unit_of_work import UnitOfWork
 from backend.core.events import DomainEvent
 from backend.core.event_bus import EventBus
 from backend.infra.persistence.intent_repo import IntentRepository

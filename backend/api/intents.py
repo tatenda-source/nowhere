@@ -1,15 +1,12 @@
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends
-from ..core.models.intent import Intent
-from ..core.models.message import Message
-from ..core.exceptions import IntentNotFound, DomainError, InvalidAction
+from ..core.exceptions import DomainError
 from ..core.commands import CreateIntent, JoinIntent, PostMessage, FlagIntent
 from ..core.clock import Clock
 from .deps import get_current_user_id, get_intent_command_handler, get_intent_query_service, get_clock
 from .limiter import RateLimiter, DynamicRateLimiter
 from .message_schemas import CreateMessageRequest
-from .join_schemas import JoinRequest
-from .schemas import NearbyResponse, CreateIntentRequest, ClusterResponse
+from .schemas import NearbyResponse, CreateIntentRequest
 from ..services.intent_command_handler import IntentCommandHandler
 from ..services.intent_query_service import IntentQueryService
 from .ws import get_ws_manager

@@ -2,8 +2,6 @@ import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 from backend.services.intent_service import IntentService
-from backend.core.models.intent import Intent
-from backend.core.models.message import Message
 from backend.core.exceptions import DomainError
 from backend.core.clock import Clock
 
@@ -61,7 +59,7 @@ def service(mock_intent_repo, mock_join_repo, mock_message_repo, mock_metrics_re
 @pytest.mark.asyncio
 async def test_create_intent(service, mock_intent_repo, mock_metrics_repo, mock_spam_detector):
     user_id = str(uuid.uuid4())
-    intent = await service.create_intent(
+    await service.create_intent(
         title="New Intent",
         emoji="🚀",
         latitude=40.0,

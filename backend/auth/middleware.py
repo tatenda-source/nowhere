@@ -1,4 +1,4 @@
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import uuid
 from .jwt import decode_access_token

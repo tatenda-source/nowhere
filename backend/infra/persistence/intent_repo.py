@@ -2,15 +2,11 @@ from datetime import datetime, timedelta, timezone
 import logging
 from uuid import UUID
 from backend.core.models.intent import Intent
-from backend.infra.persistence.redis import RedisClient, get_redis_client
+from backend.infra.persistence.redis import get_redis_client
 from .keys import RedisKeys
 from fastapi import Depends
 from redis.asyncio import Redis
-from .keys import RedisKeys
-from backend.core.models.intent import Intent
 from .lua_scripts import LuaScripts
-import json
-import logging
 logger = logging.getLogger(__name__)
 
 INTENT_TTL_SECONDS = 24 * 60 * 60 # 24h

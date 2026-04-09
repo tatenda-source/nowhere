@@ -1,6 +1,6 @@
 import logging
 from uuid import UUID
-from backend.infra.persistence.redis import RedisClient, get_redis_client
+from backend.infra.persistence.redis import get_redis_client
 from .keys import RedisKeys
 from fastapi import Depends
 from redis.asyncio import Redis

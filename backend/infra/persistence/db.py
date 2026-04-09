@@ -1,7 +1,9 @@
+import asyncio
+import logging
+
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 from backend.config import settings
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +33,6 @@ class Base(DeclarativeBase):
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
-
-
-import asyncio
 
 
 async def init_db():

@@ -1,6 +1,5 @@
 from typing import Protocol, List, Optional
 from uuid import UUID
-from datetime import datetime
 from ..models.intent import Intent
 from ..models.message import Message
 

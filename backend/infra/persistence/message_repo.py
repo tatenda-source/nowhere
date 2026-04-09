@@ -1,9 +1,8 @@
 import logging
 from uuid import UUID
-from backend.infra.persistence.redis import RedisClient, get_redis_client
+from backend.infra.persistence.redis import get_redis_client
 from .keys import RedisKeys
 from backend.core.models.message import Message
-import json
 from fastapi import Depends
 from redis.asyncio import Redis
 
@@ -31,7 +30,7 @@ class MessageRepository:
         data = message.model_dump_json()
         
         # RPUSH to list (Write)
-        count = await self.redis.rpush(messages_key, data)
+        await self.redis.rpush(messages_key, data)
         
         # Trim (Write)
         # Note: If count is Pipeline object (truthy), this always executes if condition is simplistic

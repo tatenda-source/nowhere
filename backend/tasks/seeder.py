@@ -1,4 +1,4 @@
-from random import uniform, choice, randint
+from random import uniform, choice
 from uuid import uuid4
 from datetime import datetime, timezone
 from ..core.models.intent import Intent

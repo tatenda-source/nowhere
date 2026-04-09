@@ -1,10 +1,8 @@
 import asyncio
-import json
 import logging
 from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from ..auth.jwt import decode_access_token
-from ..infra.persistence.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 

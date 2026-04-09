@@ -1,7 +1,5 @@
 import redis.asyncio as redis
-from typing import Any, Optional, List
 from backend.domain.models import Activity, Message, Join
-import json
 from pydantic import BaseModel
 
 

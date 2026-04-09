@@ -1,5 +1,4 @@
-from uuid import UUID, uuid4
-from ..core.command_handler import CommandHandler
+from uuid import uuid4
 from ..core.commands import CreateIntent, JoinIntent, PostMessage, FlagIntent
 from ..core.models.intent import Intent
 from ..core.models.message import Message
@@ -59,7 +58,7 @@ class IntentCommandHandler:
         async with self.uow:
             # Atomic Join (returns promise in pipeline, optimistic logic)
             # If Lua fail (intent missing), commit will raise.
-            joined = await self.uow.join_repo.save_join(cmd.intent_id, cmd.user_id)
+            await self.uow.join_repo.save_join(cmd.intent_id, cmd.user_id)
             
             # We assume success if we reach here in pipeline mode, 
             # or handle logic if synchronous.

@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import List, Optional
+from typing import List
 from ..core.models.intent import Intent
 from ..core.models.message import Message
 from ..core.interfaces.repositories import IntentRepository, JoinRepository, MessageRepository, MetricsRepository

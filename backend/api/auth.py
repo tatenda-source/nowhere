@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from uuid import UUID, uuid4
 from redis.asyncio import Redis

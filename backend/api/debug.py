@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from ..infra.persistence.intent_repo import IntentRepository
 from ..api.deps import get_intent_repo
 from ..tasks.seeder import seed_ambient_intents
-from ..core.models.intent import Intent
 
 router = APIRouter()
 

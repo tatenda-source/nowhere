@@ -1,6 +1,5 @@
 import pytest
 import uuid
-import httpx
 from httpx import ASGITransport, AsyncClient
 from backend.main import app, lifespan
 

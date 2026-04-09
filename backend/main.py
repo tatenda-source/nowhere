@@ -10,8 +10,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Import project modules
 from .config import settings
 from .core.logging import configure_logging, request_id_var
-from .core.exceptions import DomainError, IntentNotFound, InvalidAction, IntentExpired, SpamDetected
-from .infra.persistence.redis import lifespan as redis_lifespan, RedisClient
+from .core.exceptions import DomainError, IntentNotFound, SpamDetected
+from .infra.persistence.redis import RedisClient
 from .infra.persistence.db import init_db
 from .api.intents import router as intents_router
 from .api.auth import router as auth_router

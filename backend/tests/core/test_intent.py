@@ -2,7 +2,6 @@ import pytest
 from backend.core.models.intent import Intent
 from backend.core.exceptions import InvalidAction
 from backend.core.clock import FixedClock
-from uuid import uuid4
 from datetime import datetime, timezone
 
 # Fixed clock for deterministic testing

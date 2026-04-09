@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 def _coarse_geohash(lat: float, lon: float) -> str:
     """Convert coordinates to a 4-char geohash (~20km precision) for aggregate analytics."""
-    import hashlib
     # Simple grid-based bucketing — not a true geohash but sufficient for aggregate metrics
     lat_bucket = round(lat, 1)
     lon_bucket = round(lon, 1)

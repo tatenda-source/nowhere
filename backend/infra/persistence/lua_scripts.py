@@ -1,4 +1,3 @@
-from redis.asyncio import Redis
 
 class LuaScripts:
     # ATOMIC_FLAG: Increment flags.
