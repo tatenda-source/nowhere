@@ -6,19 +6,29 @@ export interface CoarseLocation {
 }
 
 export async function getCurrentLocation(): Promise<CoarseLocation | null> {
-    let { status } = await Location.requestForegroundPermissionsAsync();
+    try {
+        // Timeout: if location takes more than 10s, give up
+        const result = await Promise.race([
+            _getLocation(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000)),
+        ]);
+        return result;
+    } catch {
+        return null;
+    }
+}
+
+async function _getLocation(): Promise<CoarseLocation | null> {
+    const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
         return null;
     }
 
-    // Use low accuracy for "coarse" and speed
-    let location = await Location.getCurrentPositionAsync({
+    const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
     });
 
-    // Rounding for privacy logic in frontend too?
-    // Backend enforces it, but let's be consistent.
-    // 3 decimal places is ~110m
+    // 3 decimal places ~ 110m precision
     const lat = parseFloat(location.coords.latitude.toFixed(3));
     const lon = parseFloat(location.coords.longitude.toFixed(3));
 
