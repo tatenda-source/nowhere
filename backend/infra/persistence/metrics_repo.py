@@ -1,14 +1,14 @@
+import logging
+
 from .db import AsyncSessionLocal
 from .models import IntentMetric, JoinMetric, MessageMetric
 from backend.core.models.intent import Intent
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 def _coarse_geohash(lat: float, lon: float) -> str:
     """Convert coordinates to a 4-char geohash (~20km precision) for aggregate analytics."""
-    # Simple grid-based bucketing — not a true geohash but sufficient for aggregate metrics
     lat_bucket = round(lat, 1)
     lon_bucket = round(lon, 1)
     return f"{lat_bucket},{lon_bucket}"
@@ -16,6 +16,8 @@ def _coarse_geohash(lat: float, lon: float) -> str:
 
 class MetricsRepository:
     async def log_intent_creation(self, intent: Intent):
+        if AsyncSessionLocal is None:
+            return
         try:
             async with AsyncSessionLocal() as session:
                 metric = IntentMetric(
@@ -31,6 +33,8 @@ class MetricsRepository:
             logger.error("Failed to log intent metric: %s", e)
 
     async def log_join(self, intent_id: str, user_id: str):
+        if AsyncSessionLocal is None:
+            return
         try:
             async with AsyncSessionLocal() as session:
                 metric = JoinMetric(intent_id=str(intent_id))
@@ -40,6 +44,8 @@ class MetricsRepository:
             logger.error("Failed to log join metric: %s", e)
 
     async def log_message(self, intent_id: str, user_id: str, content_length: int):
+        if AsyncSessionLocal is None:
+            return
         try:
             async with AsyncSessionLocal() as session:
                 metric = MessageMetric(
