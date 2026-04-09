@@ -1,12 +1,14 @@
 #!/bin/bash
 # Post-build script: injects PWA assets into the Expo web export.
 # Run after: npx expo export --platform web
+# Works on both macOS and Linux (Render).
 
 set -e
 
-DIST_DIR="$(dirname "$0")/../dist"
-WEB_DIR="$(dirname "$0")/../web"
-ASSETS_DIR="$(dirname "$0")/../assets"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DIST_DIR="$SCRIPT_DIR/../dist"
+WEB_DIR="$SCRIPT_DIR/../web"
+ASSETS_DIR="$SCRIPT_DIR/../assets"
 
 echo "==> Injecting PWA assets into dist/"
 
@@ -48,17 +50,16 @@ cat > "$DIST_DIR/manifest.json" << 'MANIFEST'
 MANIFEST
 
 # 4. Inject manifest link + SW registration into index.html
-# Add <link rel="manifest"> and apple-touch-icon before </head>
-# Add <script src="/register-sw.js"> before </body>
-sed -i '' 's|</head>|<link rel="manifest" href="/manifest.json" />\n<link rel="apple-touch-icon" href="/icon-192.png" />\n<meta name="apple-mobile-web-app-capable" content="yes" />\n<meta name="apple-mobile-web-app-status-bar-style" content="default" />\n</head>|' "$DIST_DIR/index.html"
+# Use Node.js (guaranteed available on Render static site builds)
+node -e "
+const fs = require('fs');
+const p = '$DIST_DIR/index.html';
+let html = fs.readFileSync(p, 'utf8');
+html = html.replace('</head>', '<link rel=\"manifest\" href=\"/manifest.json\" />\\n<link rel=\"apple-touch-icon\" href=\"/icon-192.png\" />\\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\\n<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"default\" />\\n</head>');
+html = html.replace('</body>', '<script src=\"/register-sw.js\" defer></script>\\n</body>');
+fs.writeFileSync(p, html);
+console.log('==> index.html injected successfully');
+"
 
-sed -i '' 's|</body>|<script src="/register-sw.js" defer></script>\n</body>|' "$DIST_DIR/index.html"
-
-echo "==> PWA injection complete. dist/ contents:"
+echo "==> PWA injection complete."
 ls -la "$DIST_DIR"
-echo ""
-echo "==> manifest.json:"
-cat "$DIST_DIR/manifest.json"
-echo ""
-echo "==> index.html head:"
-head -20 "$DIST_DIR/index.html"
