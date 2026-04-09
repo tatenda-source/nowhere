@@ -1,3 +1,4 @@
+# Platform: linux/amd64, linux/arm64 (Oracle Cloud Free Tier uses ARM/aarch64)
 FROM python:3.13.4-slim
 
 WORKDIR /app
