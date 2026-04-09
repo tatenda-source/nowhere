@@ -37,9 +37,10 @@ class IntentRepository:
         expire_at = datetime.now(timezone.utc) + timedelta(seconds=INTENT_TTL_SECONDS)
         await self.redis.zadd(RedisKeys.expiry_queue(), {str(intent.id): expire_at.timestamp()})
         
-        # Add to User's Intent List
+        # Add to User's Intent List (with TTL matching intent expiry)
         if intent.user_id:
             await self.redis.sadd(RedisKeys.user_intents(intent.user_id), str(intent.id))
+            await self.redis.expire(RedisKeys.user_intents(intent.user_id), INTENT_TTL_SECONDS)
         
         logger.info(f"Saved intent {intent.id} with TTL {INTENT_TTL_SECONDS}s")
 
@@ -116,6 +117,17 @@ class IntentRepository:
             await self.redis.zrem(RedisKeys.intent_geo(), *expired_members)
 
         return result_pairs
+
+    async def has_user_flagged(self, intent_id: UUID, user_id: UUID) -> bool:
+        """Check if this user has already flagged this intent."""
+        key = RedisKeys.intent_flags(intent_id)
+        return bool(await self.reader.sismember(key, str(user_id)))
+
+    async def record_user_flag(self, intent_id: UUID, user_id: UUID) -> None:
+        """Record that this user flagged this intent."""
+        key = RedisKeys.intent_flags(intent_id)
+        await self.redis.sadd(key, str(user_id))
+        await self.redis.expire(key, INTENT_TTL_SECONDS)
 
     async def flag_intent(self, intent_id: UUID) -> int:
         key = RedisKeys.intent(intent_id)

@@ -1,11 +1,11 @@
+import asyncio
 import uuid
 import logging
-import traceback
-import socket
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Import project modules
 from .config import settings
@@ -14,7 +14,6 @@ from .core.exceptions import DomainError, IntentNotFound, InvalidAction, IntentE
 from .infra.persistence.redis import lifespan as redis_lifespan, RedisClient
 from .infra.persistence.db import init_db
 from .api.intents import router as intents_router
-from .api.debug import router as debug_router
 from .api.auth import router as auth_router
 from .api.ws import router as ws_router
 from .api.metrics import router as metrics_router
@@ -23,21 +22,6 @@ from .auth.middleware import AuthMiddleware
 # Configure logging
 configure_logging()
 logger = logging.getLogger(__name__)
-
-# --- UTILS ---
-def get_local_ip():
-    try:
-        # Connect to an external server to determine the local IP used for routing
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
-
-LOCAL_IP = get_local_ip()
-logger.info(f"Detected Local LAN IP: {LOCAL_IP}")
 
 # --- LIFESPAN ---
 @asynccontextmanager
@@ -62,28 +46,78 @@ async def lifespan(app: FastAPI):
         logger.info("PostgreSQL disabled — metrics stored in Redis only.")
 
     yield
+
+    # Graceful shutdown: close all WebSocket connections before disconnecting Redis
+    from .api.ws import get_ws_manager
+    ws_manager = get_ws_manager()
+    for room in list(ws_manager._rooms.values()):
+        for ws in list(room):
+            try:
+                await ws.close(code=1001, reason="Server shutting down")
+            except Exception:
+                pass
+    ws_manager._rooms.clear()
+    ws_manager._total = 0
+
     await RedisClient.disconnect()
 
 # --- APP SETUP ---
 app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
 
+# --- SECURITY HEADERS MIDDLEWARE ---
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self' wss: ws:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), microphone=()"
+        if not settings.DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        return response
+
 # --- MIDDLEWARE ---
 
-# 1. CORS - Ultra Permissive
-# allow_origins=['*'] with credentials=True is technically invalid in spec,
-# so we use allow_origin_regex='.*' to match ANY origin while allowing credentials.
+# 1. Security Headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. CORS — restricted to configured origins
+_allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+if settings.DEBUG and not _allowed_origins:
+    # In debug mode, allow localhost origins for development
+    _allowed_origins = ["http://localhost:3000", "http://localhost:8081", "http://localhost:19006"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex='^http://.*$', # Allow all http origins
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Nowhere-Identity", "X-Request-ID"],
 )
 
-# 2. Auth Middleware
+# 3. Auth Middleware
 app.add_middleware(AuthMiddleware)
 
-# 3. Request ID + correlation logging
+# 4. Request body size limit (1MB)
+@app.middleware("http")
+async def limit_body_size(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 1_048_576:
+        return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+    return await call_next(request)
+
+# 5. Request ID + correlation logging
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     rid = request.headers.get("X-Request-ID", str(uuid.uuid4()))
@@ -102,31 +136,29 @@ async def request_id_middleware(request: Request, call_next):
 
 # --- ROUTERS ---
 app.include_router(intents_router, prefix="/intents", tags=["intents"])
-app.include_router(debug_router, prefix="/debug", tags=["debug"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(ws_router)
 app.include_router(metrics_router)
+
+# Debug routes only available in DEBUG mode
+if settings.DEBUG:
+    from .api.debug import router as debug_router
+    app.include_router(debug_router, prefix="/debug", tags=["debug"])
 
 # --- EXCEPTION HANDLERS ---
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Catch-all exception handler to log full stack traces and return 500 JSON.
-    This ensures we never send a raw 500 text body or crash the connection.
-    CORS middleware runs before this, so headers should be attached (mostly).
+    Catch-all exception handler. Logs full trace server-side,
+    returns only a generic message to the client.
     """
-    logger.error(f"Global Exception: {exc}")
-    traceback.print_exc() # Print full stack trace to console
-    return JSONResponse(
-        status_code=500,
-        content={
-            "message": "Internal Server Error",
-            "detail": str(exc),
-            "type": type(exc).__name__,
-            "trace": traceback.format_exc().splitlines()[-3:] # Last 3 lines of trace for client safety
-        }
-    )
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    content = {"message": "Internal Server Error"}
+    if settings.DEBUG:
+        content["detail"] = str(exc)
+        content["type"] = type(exc).__name__
+    return JSONResponse(status_code=500, content=content)
 
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError):
@@ -152,8 +184,16 @@ async def spam_handler(request: Request, exc: SpamDetected):
 
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "ok", 
-        "app_name": settings.APP_NAME,
-        "local_ip": LOCAL_IP
-    }
+    redis_ok = False
+    try:
+        redis = RedisClient.get_client()
+        await asyncio.wait_for(redis.ping(), timeout=2.0)
+        redis_ok = True
+    except Exception:
+        pass
+    status = "ok" if redis_ok else "degraded"
+    code = 200 if redis_ok else 503
+    return JSONResponse(
+        status_code=code,
+        content={"status": status, "redis": redis_ok},
+    )

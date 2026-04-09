@@ -36,3 +36,4 @@ class PostMessage(Command):
 class FlagIntent(Command):
     """Command to flag an intent for moderation."""
     intent_id: UUID
+    user_id: UUID

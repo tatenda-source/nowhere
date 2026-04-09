@@ -14,7 +14,7 @@ class LuaScripts:
         if ttl > 0 then
             redis.call("SET", KEYS[1], new_json, "EX", ttl)
         else
-            redis.call("SET", KEYS[1], new_json)
+            redis.call("SET", KEYS[1], new_json, "EX", 86400)
         end
         return intent['flags']
     else

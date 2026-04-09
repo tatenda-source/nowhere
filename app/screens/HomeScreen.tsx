@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Button } from 'react-native';
 import { useIntents } from '../hooks/useIntents';
+import { sanitizeDisplay } from '../utils/validation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 
@@ -48,9 +49,9 @@ export default function HomeScreen({ navigation }: Props) {
                 onRefresh={fetchData}
                 renderItem={({ item }) => (
                     <View style={styles.card} accessibilityLabel={`${item.emoji} ${item.title}, ${item.join_count} joined`} accessibilityRole="button">
-                        <Text style={styles.emoji} accessibilityElementsHidden>{item.emoji}</Text>
+                        <Text style={styles.emoji} accessibilityElementsHidden>{sanitizeDisplay(item.emoji)}</Text>
                         <View style={styles.info}>
-                            <Text style={styles.title}>{item.title}</Text>
+                            <Text style={styles.title}>{sanitizeDisplay(item.title)}</Text>
                             <Text style={styles.meta}>{item.join_count} joined</Text>
                         </View>
                         <View style={styles.actions}>

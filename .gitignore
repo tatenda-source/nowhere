@@ -1,6 +1,13 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
+*.pyo
+*.bak
 node_modules/
 .env
+.env.*
+!.env.example
 .DS_Store
+dump.rdb
+*.rdb

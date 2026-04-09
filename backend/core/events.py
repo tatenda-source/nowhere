@@ -12,13 +12,12 @@ class DomainEvent(BaseModel):
 
 
 class IntentCreated(DomainEvent):
-    """Event emitted when a new intent is created."""
+    """Event emitted when a new intent is created.
+    GPS coordinates intentionally omitted — use coarse geohash for analytics only.
+    """
     intent_id: UUID
     user_id: str
-    title: str
     emoji: str
-    latitude: float
-    longitude: float
 
 
 class IntentJoined(DomainEvent):

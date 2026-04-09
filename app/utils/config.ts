@@ -22,4 +22,11 @@ function resolveApiUrl(): string {
     return 'https://api.nowhere.app';
 }
 
-export const API_URL = resolveApiUrl();
+const _resolved = resolveApiUrl();
+
+// @ts-ignore — __DEV__ is a React Native global
+if (typeof __DEV__ !== 'undefined' && !__DEV__ && !_resolved.startsWith('https://')) {
+    throw new Error('API_URL must use HTTPS in production builds');
+}
+
+export const API_URL = _resolved;

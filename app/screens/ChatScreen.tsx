@@ -2,6 +2,9 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput, Button, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { api } from '../utils/api';
 import { API_URL } from '../utils/config';
+import { getAccessToken } from '../utils/identity';
+import { isValidUUID, sanitizeDisplay } from '../utils/validation';
+import { logError } from '../utils/logger';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../App';
 
@@ -14,9 +17,13 @@ interface Message {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
-function buildWsUrl(intentId: string): string {
-    const wsBase = API_URL.replace(/^http/, 'ws');
-    return `${wsBase}/ws/intents/${intentId}/messages`;
+function buildWsUrl(intentId: string, token: string | null): string {
+    const url = new URL(`/ws/intents/${encodeURIComponent(intentId)}/messages`, API_URL);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (token) {
+        url.searchParams.set('token', token);
+    }
+    return url.toString();
 }
 
 export default function ChatScreen({ route, navigation }: Props) {
@@ -25,17 +32,27 @@ export default function ChatScreen({ route, navigation }: Props) {
     const [text, setText] = useState('');
     const [loading, setLoading] = useState(true);
     const [connected, setConnected] = useState(false);
+    const [sending, setSending] = useState(false);
 
     const wsRef = useRef<WebSocket | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const flatListRef = useRef<FlatList>(null);
 
+    // Validate intentId is a real UUID — reject malicious route params
+    useEffect(() => {
+        if (!isValidUUID(intentId)) {
+            Alert.alert('Error', 'Invalid intent');
+            navigation.goBack();
+        }
+    }, [intentId, navigation]);
+
     const fetchMessages = useCallback(async () => {
+        if (!isValidUUID(intentId)) return;
         try {
             const res = await api.get(`/intents/${intentId}/messages`);
             setMessages(res.data);
         } catch (e) {
-            console.error(e);
+            logError('Failed to fetch messages', e);
         } finally {
             setLoading(false);
         }
@@ -43,79 +60,85 @@ export default function ChatScreen({ route, navigation }: Props) {
 
     // WebSocket connection with polling fallback
     useEffect(() => {
+        if (!isValidUUID(intentId)) return;
+
         // Initial fetch
         fetchMessages();
 
-        // Attempt WebSocket
-        const ws = new WebSocket(buildWsUrl(intentId));
+        let ws: WebSocket;
 
-        ws.onopen = () => {
-            setConnected(true);
-            // Stop polling if it was running
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
-        };
+        // Async connect so we can await the token
+        (async () => {
+            const token = await getAccessToken();
+            ws = new WebSocket(buildWsUrl(intentId, token));
 
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'new_message' && data.message) {
-                    setMessages(prev => [...prev, data.message]);
+            ws.onopen = () => {
+                setConnected(true);
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
                 }
-            } catch (e) {
-                // Ignore non-JSON (e.g. "pong")
-            }
-        };
+            };
 
-        ws.onerror = () => {
-            setConnected(false);
-            // Fall back to polling
-            if (!intervalRef.current) {
-                intervalRef.current = setInterval(fetchMessages, 3000);
-            }
-        };
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'new_message' && data.message) {
+                        setMessages(prev => [...prev, data.message]);
+                    }
+                } catch {
+                    // Ignore non-JSON (e.g. "pong")
+                }
+            };
 
-        ws.onclose = () => {
-            setConnected(false);
-            // Fall back to polling
-            if (!intervalRef.current) {
-                intervalRef.current = setInterval(fetchMessages, 3000);
-            }
-        };
+            ws.onerror = () => {
+                setConnected(false);
+                if (!intervalRef.current) {
+                    intervalRef.current = setInterval(fetchMessages, 3000);
+                }
+            };
 
-        wsRef.current = ws;
+            ws.onclose = () => {
+                setConnected(false);
+                if (!intervalRef.current) {
+                    intervalRef.current = setInterval(fetchMessages, 3000);
+                }
+            };
+
+            wsRef.current = ws;
+        })();
 
         // Keepalive ping every 30s
         const pingInterval = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send('ping');
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send('ping');
             }
         }, 30000);
 
         return () => {
             clearInterval(pingInterval);
             if (intervalRef.current) clearInterval(intervalRef.current);
-            ws.close();
+            wsRef.current?.close();
         };
     }, [intentId, fetchMessages]);
 
     const handleSend = async () => {
-        if (!text.trim()) return;
+        if (!text.trim() || sending) return;
+        setSending(true);
         try {
             await api.post(`/intents/${intentId}/messages`, {
                 user_id: "ignored_by_backend",
                 content: text
             });
             setText('');
-            // If not on WebSocket, fetch immediately
             if (!connected) {
                 fetchMessages();
             }
         } catch (e) {
-            console.error(e);
+            logError('Failed to send message', e);
             Alert.alert("Error", "Could not send message");
+        } finally {
+            setSending(false);
         }
     };
 
@@ -133,7 +156,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                     <View style={styles.bubble}>
-                        <Text style={styles.content}>{item.content}</Text>
+                        <Text style={styles.content}>{sanitizeDisplay(item.content)}</Text>
                     </View>
                 )}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
@@ -148,7 +171,7 @@ export default function ChatScreen({ route, navigation }: Props) {
                     accessibilityLabel="Message input"
                     accessibilityHint="Type your message and press send"
                 />
-                <Button title="Send" onPress={handleSend} accessibilityLabel="Send message" />
+                <Button title="Send" onPress={handleSend} disabled={sending} accessibilityLabel="Send message" />
             </View>
         </KeyboardAvoidingView>
     );

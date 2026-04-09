@@ -1,5 +1,6 @@
-from uuid import UUID
 from pydantic import BaseModel
 
+
 class JoinRequest(BaseModel):
-    user_id: UUID
+    """Join request body. user_id comes from auth middleware, never the request body."""
+    pass

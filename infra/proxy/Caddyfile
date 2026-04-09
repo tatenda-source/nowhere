@@ -1,13 +1,42 @@
-:80 {
-    # Rate limit: 100 requests per minute per IP
-    rate_limit {
-        zone api_zone {
-            key {remote_host}
-            events 100
-            window 1m
-        }
+{$NOWHERE_DOMAIN:localhost} {
+    # Caddy auto-provisions TLS certificates for real domains.
+    # For localhost, it uses a self-signed cert automatically.
+
+    # Limit request body size to prevent resource exhaustion
+    request_body {
+        max_size 1MB
     }
 
+    # Security headers (defense-in-depth — also set at app level)
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # --- API / WebSocket / Health → backend ---
     reverse_proxy /api/* api:8000
     reverse_proxy /ws/* api:8000
+    reverse_proxy /health api:8000
+
+    # --- Static PWA serving ---
+    root * /srv/dist
+    file_server
+
+    # SPA fallback: any request that doesn't match a file serves index.html
+    try_files {path} /index.html
+
+    # Cache headers: service-worker.js — always revalidate
+    @serviceWorker path /service-worker.js
+    header @serviceWorker Cache-Control "no-cache, no-store, must-revalidate"
+
+    # Cache headers: index.html — always revalidate
+    @indexHtml path /index.html
+    header @indexHtml Cache-Control "no-cache, no-store, must-revalidate"
+
+    # Cache headers: static assets — long-lived immutable cache
+    @staticAssets path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.woff *.woff2 *.ttf *.ico *.webp
+    header @staticAssets Cache-Control "public, max-age=31536000, immutable"
 }
