@@ -30,7 +30,6 @@ services:
     runtime: static
     buildCommand: cd app && npm install && npm run build:web
     staticPublishPath: app/dist
-    plan: free
     headers:
       - path: /service-worker.js
         name: Cache-Control
