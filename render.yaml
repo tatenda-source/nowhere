@@ -63,7 +63,8 @@ services:
         source: /*
         destination: /index.html
 
-databases:
-  - name: nowhere-redis
+  # Redis
+  - type: redis
+    name: nowhere-redis
     plan: free
     ipAllowList: []
