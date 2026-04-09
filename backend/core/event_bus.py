@@ -1,3 +1,4 @@
+import asyncio
 from typing import Protocol, List, Callable, Awaitable, Dict
 from .events import DomainEvent
 import logging
@@ -28,27 +29,27 @@ class InMemoryEventBus:
         if event_type not in self._handlers:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
-        logger.info(f"Subscribed handler to {event_type.__name__}")
+        logger.info("Subscribed handler to %s", event_type.__name__)
 
     async def publish(self, event: DomainEvent) -> None:
-        """Persist event first, then dispatch to handlers. Handler failures are logged, not propagated."""
-        # Persist to event store (if available)
+        """Persist event first, then dispatch to handlers in parallel.
+        Handler failures are logged, not propagated."""
         if self._event_store:
             try:
                 await self._event_store.append(event)
             except Exception as e:
-                logger.error(f"Failed to persist event {type(event).__name__}: {e}", exc_info=True)
+                logger.error("Failed to persist event %s: %s", type(event).__name__, e, exc_info=True)
 
         event_type = type(event)
         handlers = self._handlers.get(event_type, [])
 
         if not handlers:
-            logger.debug(f"No handlers for {event_type.__name__}")
             return
 
-        for handler in handlers:
-            try:
-                await handler(event)
-                logger.debug(f"Handler executed for {event_type.__name__}")
-            except Exception as e:
-                logger.error(f"Event handler failed for {event_type.__name__}: {e}", exc_info=True)
+        results = await asyncio.gather(
+            *[handler(event) for handler in handlers],
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, Exception):
+                logger.error("Event handler failed for %s: %s", event_type.__name__, r, exc_info=True)

@@ -40,7 +40,7 @@ class SpamDetector:
         key = RedisKeys.spam_last_hash(user_id)
         
         last_hash = await self.redis.get(key)
-        if last_hash and last_hash.decode() == content_hash:
+        if last_hash and last_hash == content_hash:
             raise HTTPException(status_code=400, detail="You just posted that. Be original!")
         
         # Save new hash (expire in 5 mins - prevent spamming same thing)

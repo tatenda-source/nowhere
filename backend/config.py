@@ -1,9 +1,16 @@
+import os
+import secrets
+
 from pydantic_settings import BaseSettings
-from pydantic import Field, ConfigDict
+from pydantic import Field, ConfigDict, model_validator
+
+
+_INSECURE_DEFAULTS = {"devsecret", "changeme", "secret", ""}
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "nowhere-backend"
+    DEBUG: bool = Field(default=False, validation_alias="DEBUG")
     REDIS_DSN: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_DSN")
     POSTGRES_DSN: str = Field(
         default="sqlite+aiosqlite:///./nowhere.db",
@@ -12,10 +19,13 @@ class Settings(BaseSettings):
     POSTGRES_ENABLED: bool = Field(default=False, validation_alias="POSTGRES_ENABLED")
     DEVICE_TOKEN_SECRET: str = Field(default="devsecret", validation_alias="DEVICE_TOKEN_SECRET")
     REDIS_TTL_SECONDS: int = Field(default=60 * 60 * 6, validation_alias="REDIS_TTL_SECONDS")
-    
+
     # Explicit JWT settings (lowercase to match usage in jwt.py)
     jwt_secret: str = Field(default="devsecret", validation_alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
+
+    # CORS — comma-separated allowed origins (e.g. "https://nowhere.app,https://www.nowhere.app")
+    ALLOWED_ORIGINS: str = Field(default="", validation_alias="ALLOWED_ORIGINS")
 
     # Ranking weights
     RANKING_W_DIST: float = Field(default=1.0, validation_alias="RANKING_W_DIST")
@@ -24,6 +34,21 @@ class Settings(BaseSettings):
     RANKING_DECAY_SECONDS: int = Field(default=86400, validation_alias="RANKING_DECAY_SECONDS")
 
     model_config = ConfigDict(env_file=".env")
+
+    @model_validator(mode="after")
+    def _check_secrets(self) -> "Settings":
+        """Refuse to start with insecure secrets outside DEBUG mode."""
+        if not self.DEBUG:
+            if self.jwt_secret in _INSECURE_DEFAULTS:
+                raise ValueError(
+                    "JWT_SECRET must be set to a strong, random value in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+                )
+            if self.DEVICE_TOKEN_SECRET in _INSECURE_DEFAULTS:
+                raise ValueError(
+                    "DEVICE_TOKEN_SECRET must be set to a strong, random value in production."
+                )
+        return self
 
 
 _settings = Settings()

@@ -20,7 +20,7 @@ class CreateIntentRequest(BaseModel):
     @field_validator("emoji")
     @classmethod
     def sanitize_emoji(cls, v: str) -> str:
-        return v.strip()[:4]
+        return html.escape(v.strip()[:4])
 
     @field_validator("latitude")
     @classmethod

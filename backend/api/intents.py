@@ -127,14 +127,16 @@ async def post_message(
             raise HTTPException(status_code=403, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/{intent_id}/flag", status_code=200)
+@router.post("/{intent_id}/flag", status_code=200, dependencies=[Depends(RateLimiter("flag", 5, 3600))])
 async def flag_intent(
     intent_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
     handler: IntentCommandHandler = Depends(get_intent_command_handler),
     clock: Clock = Depends(get_clock)
 ):
     cmd = FlagIntent(
         intent_id=intent_id,
+        user_id=user_id,
         timestamp=clock.now()
     )
     return {"id": intent_id, "flags": await handler.handle_flag_intent(cmd)}

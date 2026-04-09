@@ -14,7 +14,10 @@ class Message(BaseModel):
     @field_validator('content')
     @classmethod
     def validate_content(cls, v: str) -> str:
-        # "Ephemeral" utility, keep messages concise.
+        import html
+        v = html.escape(v.strip())
         if len(v) > 500:
             raise ValueError('Message content too long (max 500 chars)')
+        if not v:
+            raise ValueError('Message content cannot be empty')
         return v

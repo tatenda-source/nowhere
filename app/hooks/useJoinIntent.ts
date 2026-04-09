@@ -1,9 +1,15 @@
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { api } from '../utils/api';
+import { isValidUUID } from '../utils/validation';
+import { logError } from '../utils/logger';
 
 export function useJoinIntent() {
     const joinIntent = useCallback(async (id: string, onJoinSuccess?: () => void) => {
+        if (!isValidUUID(id)) {
+            Alert.alert("Error", "Invalid intent");
+            return false;
+        }
         try {
             const res = await api.post(`/intents/${id}/join`);
             if (res.data.joined) {
@@ -16,7 +22,7 @@ export function useJoinIntent() {
             }
             return true;
         } catch (e: any) {
-            console.error(e);
+            logError('Join intent failed', e);
             Alert.alert("Error", e.userMessage || "Could not join intent");
             return false;
         }

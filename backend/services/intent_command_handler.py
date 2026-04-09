@@ -45,10 +45,7 @@ class IntentCommandHandler:
                 timestamp=cmd.timestamp,
                 intent_id=intent.id,
                 user_id=intent.user_id or "",
-                title=intent.title,
                 emoji=intent.emoji,
-                latitude=intent.latitude,
-                longitude=intent.longitude
             )
             self.uow.collect_event(event)
             
@@ -87,8 +84,12 @@ class IntentCommandHandler:
         await self.spam_detector.check(cmd.content, str(cmd.user_id))
 
         async with self.uow:
+            # Verify intent still exists (not expired)
+            intent = await self.uow.intent_repo.get_intent(str(cmd.intent_id))
+            if intent is None:
+                raise DomainError("Intent expired or not found")
+
             # Check membership (Read via Reader)
-            # This works inside 'async with uow' because repos are initialized.
             if not await self.uow.join_repo.is_member(cmd.intent_id, cmd.user_id):
                 raise DomainError("Must join intent to message")
 
@@ -118,8 +119,17 @@ class IntentCommandHandler:
         return message
 
     async def handle_flag_intent(self, cmd: FlagIntent) -> int:
-        """Handle flagging an intent."""
+        """Handle flagging an intent. Each user can only flag an intent once."""
         async with self.uow:
+            # Per-user deduplication — prevent flag spam
+            already_flagged = await self.uow.intent_repo.has_user_flagged(
+                cmd.intent_id, cmd.user_id
+            )
+            if already_flagged:
+                raise DomainError("You have already flagged this intent")
+
+            await self.uow.intent_repo.record_user_flag(cmd.intent_id, cmd.user_id)
+
             # Atomic Flag (Write)
             new_flag_count = await self.uow.intent_repo.flag_intent(cmd.intent_id)
             

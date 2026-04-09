@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from redis.asyncio import Redis
 from ..infra.persistence.redis import get_redis_client
 from ..infra.persistence.event_store import STREAM_KEY
@@ -21,7 +21,12 @@ async def incr_counter(redis: Redis, name: str) -> None:
 
 
 @router.get("/metrics")
-async def get_metrics(redis: Redis = Depends(get_redis_client)):
+async def get_metrics(request: Request, redis: Redis = Depends(get_redis_client)):
+    # Restrict to localhost / internal requests only
+    client_host = request.client.host if request.client else None
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Forbidden")
     """Lightweight operational metrics endpoint."""
     pipe = redis.pipeline()
     counters = [

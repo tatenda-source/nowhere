@@ -36,7 +36,6 @@ export default function CreateScreen({ navigation }: Props) {
 
             navigation.goBack();
         } catch (e) {
-            console.error("Creation failed:", e);
             Alert.alert("Error", "Failed to create intent");
         } finally {
             setCreating(false);

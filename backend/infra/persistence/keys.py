@@ -18,6 +18,10 @@ class RedisKeys:
         return f"intent:{str(intent_id)}:joins" # Set of user_ids
 
     @staticmethod
+    def intent_flags(intent_id: UUID | str) -> str:
+        return f"intent:{str(intent_id)}:flaggers"  # Set of user_ids who flagged
+
+    @staticmethod
     def rate_limit(user_id: str, action: str) -> str:
         return f"identity:{user_id}:limits:{action}"
 
